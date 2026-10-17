@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geo Sleuth</title>
+<meta name="description" content="Навык для ИИ-агентов, который находит место съёмки фотографии и показывает, как к этому пришёл.">
+<meta property="og:title" content="Geo Sleuth">
+<meta property="og:description" content="Находит место съёмки фото с точностью до метров: геометрия OSM, линии горизонта, спутник и Street View.">
+<meta property="og:image" content="docs/social-preview.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: survey-sheet landing — hero plate, three case cards, install block, web-version call */
+:root {
+  --paper: #eef1ec; --sheet: #f8faf6; --ink: #18262b; --muted: #5b6b70; --rule: #c9d3cc;
+  --grid: rgba(31, 95, 139, .07); --accent: #1f5f8b; --accent-ink: #fff; --pin: #c8372d; --code: #e3e9e4;
+  --f-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #0f1619; --sheet: #162126; --ink: #e3ebe7; --muted: #94a5a9; --rule: #2a3a40;
+    --grid: rgba(120, 180, 220, .06); --accent: #6fb0dc; --accent-ink: #0b1418; --pin: #ff6b5e; --code: #0b1215; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--f-body);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 64px; }
+img { max-width: 100%; display: block; }
+a { color: var(--accent); }
+nav { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; font: 500 12px/1 var(--f-mono); color: var(--muted); letter-spacing: .04em; }
+nav .links { display: flex; gap: 18px; flex-wrap: wrap; }
+nav a { color: inherit; text-decoration: none; }
+nav a:hover { color: var(--accent); }
+h1 { font: 700 clamp(34px, 7vw, 68px)/1 var(--f-display); margin: 0; letter-spacing: -.02em; }
+h1 .pin { color: var(--pin); }
+h2 { font: 700 clamp(22px, 3.2vw, 30px)/1.15 var(--f-display); margin: 0; text-wrap: balance; }
+h3 { font: 700 17px/1.3 var(--f-display); margin: 0; text-wrap: balance; }
+.label { font: 600 11px/1.2 var(--f-body); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+.hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px; align-items: center; }
+@media (max-width: 860px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+.hero p.lede { font-size: 19px; line-height: 1.5; max-width: 34ch; margin: 18px 0 24px; }
+.plate { position: relative; background: var(--sheet); border: 1px solid var(--rule); padding: 10px; border-radius: 4px; }
+.plate figcaption { font: 12.5px/1.4 var(--f-mono); color: var(--muted); padding: 10px 2px 2px; }
+.cta { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { font: 600 15px/1 var(--f-body); border-radius: 4px; padding: 13px 18px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); text-decoration: none; display: inline-flex; gap: 8px; align-items: center; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.section { display: grid; gap: 24px; }
+.section > header { display: grid; gap: 8px; max-width: 62ch; }
+.section > header p { margin: 0; color: var(--muted); }
+.why { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+.why div { background: var(--sheet); padding: 20px; display: grid; gap: 6px; align-content: start; }
+.why b { font-weight: 600; }
+.why span { color: var(--muted); font-size: 15px; }
+@media (max-width: 860px) { .why { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .why { grid-template-columns: minmax(0, 1fr); } }
+.cases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 860px) { .cases { grid-template-columns: minmax(0, 1fr); } }
+.case { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
+.case img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.case .body { padding: 18px; display: grid; gap: 10px; align-content: start; }
+.case .acc { font: 700 26px/1 var(--f-display); color: var(--pin); }
+.case .where { font: 12.5px/1.3 var(--f-mono); color: var(--muted); }
+.case .chain { font: 12px/1.5 var(--f-mono); color: var(--accent); overflow-wrap: anywhere; }
+.case p { margin: 0; font-size: 15px; }
+pre { margin: 0; background: var(--code); border: 1px solid var(--rule); border-radius: 4px; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.6 var(--f-mono); }
+.install { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 760px) { .install { grid-template-columns: minmax(0, 1fr); } }
+.install > div { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.install p { margin: 0; color: var(--muted); font-size: 15px; }
+.web { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: center; background: var(--sheet); border: 1px solid var(--rule); border-left: 3px solid var(--pin); border-radius: 4px; padding: 24px; }
+@media (max-width: 700px) { .web { grid-template-columns: minmax(0, 1fr); } }
+.web p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--rule); padding-top: 20px; display: grid; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <span>geo-sleuth · MIT</span>
+    <span class="links"><a href="#cases">Примеры</a><a href="#install">Установка</a><a href="#web">Веб-версия</a><a href="https://github.com/Danlug/Geo-Sleuth">GitHub ↗</a></span>
+  </nav>
+
+  <section class="hero">
+    <div>
+      <div class="label">Навык для ИИ-агентов</div>
+      <h1 style="margin-top:12px">Geo Sleuth<span class="pin">.</span></h1>
+      <p class="lede">Находит место съёмки фотографии и показывает, как к этому пришёл. Иногда с точностью до пары метров.</p>
+      <div class="cta">
+        <a class="btn" href="#install">Установить</a>
+        <a class="btn ghost" href="#web">Попробовать в браузере</a>
+      </div>
+    </div>
+    <figure class="plate" style="margin:0">
+      <img src="docs/hero.gif" alt="От одного фото к точке съёмки: фото, сканирование региона, наложение линий горизонта, итоговое изображение-доказательство" width="880" height="495">
+      <figcaption>Ни текста, ни номеров, ни достопримечательностей. Один мост, одна гора. Точность ±2 м.</figcaption>
+    </figure>
+  </section>
+
+  <section class="section">
+    <header>
+      <div class="label">Как это работает</div>
+      <h2>Геометрия вместо догадок</h2>
+    </header>
+    <div class="why">
+      <div><b>Одно фото, одна фраза</b><span>Дайте агенту снимок и скажите «найди, где это снято». В ответ придут координаты точки съёмки, направление камеры и спутниковое изображение-доказательство.</span></div>
+      <div><b>Работает без надписей</b><span>Даже без вывесок, номеров и ориентиров поиск ведут геометрия OpenStreetMap, данные о рельефе, спутниковые снимки и Street View.</span></div>
+      <div><b>Каждый вывод подкреплён файлом</b><span>Вывод обязан ссылаться на команду, которую агент запустил, и на файл, который она создала. Известность места доказательством не считается.</span></div>
+      <div><b>Скрипты ранжируют, модель судит</b><span>Около двадцати скриптов ищут, оценивают и сортируют варианты, а модель выбирает только среди лучших нескольких.</span></div>
+      <div><b>Ответ с радиусом ошибки</b><span>Координаты ± радиус, курс камеры, изображение-доказательство и уровень уверенности.</span></div>
+      <div><b>Один навык для всех агентов</b><span>Это стандартный SKILL.md и обычные Python-скрипты. Работает в Claude Code, Codex, Cursor, Gemini CLI, OpenCode и GitHub Copilot.</span></div>
+    </div>
+  </section>
+
+  <section class="section" id="cases">
+    <header>
+      <div class="label">Примеры</div>
+      <h2>Три фото без GPS</h2>
+      <p>Ни в одном снимке не было координат. Расстояние указано от подтверждённой точки съёмки.</p>
+    </header>
+    <div class="cases">
+      <article class="case">
+        <img src="docs/case/thumb.jpg" alt="Печь на краю рисового поля, виадук и гора на заднем плане" loading="lazy">
+        <div class="body">
+          <div class="acc">±2 м</div>
+          <div class="where">Цинъюань, Гуандун</div>
+          <h3>Рисовое поле и виадук</h3>
+          <p>Агент проверил 27 335 участков железнодорожных мостов, подобрал линию горизонта и посчитал опоры: 17 опор дали 17 направлений от камеры.</p>
+          <div class="chain">27 335 → 171 → 14 372 → 22 → 3 → 1</div>
+        </div>
+      </article>
+      <article class="case">
+        <img src="docs/cases/desert/thumb.jpg" alt="Гребень песчаной дюны и гряда тёмных гор" loading="lazy">
+        <div class="body">
+          <div class="acc">87 м</div>
+          <div class="where">Да-Цайдам, Цинхай</div>
+          <h3>Пустыня и наклон в 1°</h3>
+          <p>Отправной точкой стали ЛЭП вдоль 1 537 точек. Дело решил телефон, наклонённый на один градус: после поправки на крен верная точка вышла в лидеры.</p>
+          <div class="chain">1 537 → застряли на ~10 px → крен 1° → 1 дюна</div>
+        </div>
+      </article>
+      <article class="case">
+        <img src="docs/cases/cherry/thumb.jpg" alt="Цветущая сакура над тротуаром" loading="lazy">
+        <div class="body">
+          <div class="acc">3 м</div>
+          <div class="where">Ванкувер, Канада</div>
+          <h3>Сакура на улице</h3>
+          <p>По открытым данным города о деревьях агент отобрал 1 095 крупных вишен. Затем помогли тени, уклон улицы и Street View 2009 и 2024 годов.</p>
+          <div class="chain">1 095 деревьев → 97 кварталов → W 60th Ave</div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="install">
+    <header>
+      <div class="label">Установка</div>
+      <h2>Две минуты и одна команда</h2>
+      <p>Нужен Python 3.10+. При первом запуске попросите агента выполнить <code>doctor.py</code> из папки <code>scripts/</code>: он проверит зависимости и доступ к сети.</p>
+    </header>
+    <div class="install">
+      <div>
+        <h3>Через skills CLI</h3>
+        <p>Выберите агентов, когда CLI спросит.</p>
+        <pre><code>npx skills add Danlug/Geo-Sleuth</code></pre>
+      </div>
+      <div>
+        <h3>Вручную, для Claude Code</h3>
+        <p>Скопируйте папку навыка в каталог навыков.</p>
+        <pre><code>git clone https://github.com/Danlug/Geo-Sleuth
+cp -r Geo-Sleuth/skills/geo-sleuth ~/.claude/skills/</code></pre>
+      </div>
+    </div>
+    <p style="margin:0">Потом дайте агенту фото и напишите: <b>«найди, где снято это фото»</b>.</p>
+  </section>
+
+  <section class="web" id="web">
+    <div>
+      <div class="label">Веб-версия</div>
+      <h2 style="margin-top:8px">Без установки, прямо в claude.ai</h2>
+      <p>Загрузите фото, и Claude разберёт подсказки, предложит кандидатов с координатами и радиусом ошибки и подскажет, как проверить ответ. Работает только по самому изображению, без OSM- и спутниковых инструментов навыка.</p>
+    </div>
+    <a class="btn" href="https://claude.ai/artifact/EcBKj1UZJidpKTJJH3MwGV">Открыть веб-версию ↗</a>
+  </section>
+
+  <footer>
+    <span>Автор навыка <a href="https://github.com/Oldcircle/geo-sleuth">Oldcircle/geo-sleuth</a>, лицензия MIT. Это зеркало и русскоязычная страница.</span>
+    <span>Определение места съёмки помогает и найти людей. Используйте навык только для своих фото или снимков, которые вы вправе анализировать.</span>
+  </footer>
+</div>
+</body>
+</html>
